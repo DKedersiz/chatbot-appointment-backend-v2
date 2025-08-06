@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Email Doğrulama</title>
+</head>
+<body>
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #2d3748;">Hesap Doğrulama</h2>
+    <p>Hastane Randevu Sistemimize hoş geldiniz!</p>
+    <p>Hesabınızı doğrulamak için lütfen aşağıdaki butona tıklayın:</p>
+
+    <a th:href="${verificationUrl}"
+       style="display: inline-block; padding: 10px 20px; background-color: #4299e1;
+                  color: white; text-decoration: none; border-radius: 4px; margin: 20px 0;">
+        Hesabımı Doğrula
+    </a>
+
+    <p>Eğer bu işlemi siz yapmadıysanız, bu emaili dikkate almayınız.</p>
+    <p>Teşekkürler,<br>Hastane Randevu Sistemi</p>
+</div>
+</body>
+</html>

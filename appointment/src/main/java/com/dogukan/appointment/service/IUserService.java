@@ -15,7 +15,7 @@ public interface IUserService {
     DtoUser getUserByTckNo(String tckNo);
     List<DtoUser> getAllUsers();
     DtoUser updateUser(UUID id,DtoUserIU user);
-    void deleteUser(UUID id);
+    String deleteUser(UUID id);
 
     List<DtoUser> searchUsersByName(String firstName, String lastName);
 

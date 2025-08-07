@@ -2,6 +2,7 @@ package com.dogukan.appointment.service.impl;
 
 import com.dogukan.appointment.dto.*;
 import com.dogukan.appointment.enums.Role;
+import com.dogukan.appointment.exception.BaseException;
 import com.dogukan.appointment.exception.ErrorMessage;
 import com.dogukan.appointment.exception.MessageType;
 import com.dogukan.appointment.jwt.JwtService;
@@ -94,7 +95,7 @@ public class AuthServiceImpl implements IAuthService {
         Optional<User> user = userRepository.findByEmail(request.getEmail());
 
         if(user.isEmpty()) {
-            new ErrorMessage(MessageType.USER_NOT_FOUND,"Bu e-posta ile kullanıcı bulunamadı.");
+            throw new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND,"Bu e-posta ile kullanıcı bulunamadı."));
         }
 
 

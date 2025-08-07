@@ -137,14 +137,14 @@ public class UserServiceImpl implements IUserService {
 
     @Override
     @Transactional
-    public void deleteUser(UUID id) {
+    public String deleteUser(UUID id) {
         log.info("Deleting user with id : {}", id);
 
         User user = userRepository.findById(id).orElse(null);
         if(user != null) {
             userRepository.delete(user);
         }
-
+        return "Kullanıcı başarıyla silindi.";
     }
 
     @Override

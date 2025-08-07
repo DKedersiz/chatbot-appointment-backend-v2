@@ -13,7 +13,6 @@ import com.dogukan.appointment.repository.UserRepository;
 import com.dogukan.appointment.service.IAuthService;
 import com.dogukan.appointment.service.IEmailService;
 import com.dogukan.appointment.service.IRefreshTokenService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

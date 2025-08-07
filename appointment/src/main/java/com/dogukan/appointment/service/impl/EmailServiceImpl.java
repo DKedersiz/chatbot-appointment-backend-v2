@@ -5,8 +5,9 @@ import com.dogukan.appointment.repository.UserRepository;
 import com.dogukan.appointment.service.IEmailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.validation.constraints.Email;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -14,7 +15,6 @@ import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
 @Service
-@RequiredArgsConstructor
 public class EmailServiceImpl implements IEmailService {
 
     private final JavaMailSender mailSender;
@@ -22,7 +22,15 @@ public class EmailServiceImpl implements IEmailService {
     private final EmailVerificationTokenRepository tokenRepository;
     private final UserRepository userRepository;
 
-    @Value("${app.base-url}")
+    public EmailServiceImpl(JavaMailSender javaMailSender,TemplateEngine templateEngine,EmailVerificationTokenRepository emailVerificationTokenRepository,
+                            UserRepository userRepository) {
+        this.mailSender = javaMailSender;
+        this.templateEngine = templateEngine;
+        this.tokenRepository = emailVerificationTokenRepository;
+        this.userRepository = userRepository;
+    }
+
+    @Value("${app_base_url}")
     private String baseUrl;
 
 
@@ -50,6 +58,10 @@ public class EmailServiceImpl implements IEmailService {
         }
     }
 
+    @Override
+    public void sendPasswordResetEmail(String recipientEmail, String resetToken) {
+
+    }
 
 
 }

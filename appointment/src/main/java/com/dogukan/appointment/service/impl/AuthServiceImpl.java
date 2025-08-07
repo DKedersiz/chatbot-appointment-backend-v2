@@ -2,6 +2,8 @@ package com.dogukan.appointment.service.impl;
 
 import com.dogukan.appointment.dto.*;
 import com.dogukan.appointment.enums.Role;
+import com.dogukan.appointment.exception.ErrorMessage;
+import com.dogukan.appointment.exception.MessageType;
 import com.dogukan.appointment.jwt.JwtService;
 import com.dogukan.appointment.model.EmailVerificationToken;
 import com.dogukan.appointment.model.RefreshToken;
@@ -20,10 +22,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class AuthServiceImpl implements IAuthService {
 
     @Value("${JWT_SECRET_KEY}")
@@ -36,6 +38,17 @@ public class AuthServiceImpl implements IAuthService {
     private final IRefreshTokenService refreshTokenService;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final IEmailService emailService;
+
+    public AuthServiceImpl(UserRepository userRepository,PasswordEncoder passwordEncoder,JwtService jwtService,AuthenticationManager authenticationManager,
+                           IRefreshTokenService refreshTokenService,EmailVerificationTokenRepository emailVerificationTokenRepository,IEmailService emailService) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.authenticationManager = authenticationManager;
+        this.refreshTokenService = refreshTokenService;
+        this.emailVerificationTokenRepository = emailVerificationTokenRepository;
+        this.emailService = emailService;
+    }
 
 
 
@@ -79,18 +92,22 @@ public class AuthServiceImpl implements IAuthService {
 
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
+        Optional<User> user = userRepository.findByEmail(request.getEmail());
 
-        if(!user.getIsVerified()) {
-            throw new EmailNotVerified("Email not verified");
+        if(user.isEmpty()) {
+            new ErrorMessage(MessageType.USER_NOT_FOUND,"Bu e-posta ile kullanıcı bulunamadı.");
         }
 
-        String accessToken = jwtService.generateToken(user);
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
 
-        user.updateLastLogin();
-        userRepository.save(user);
+        if(!user.get().getIsVerified()) {
+             new ErrorMessage(MessageType.EMAIL_NOT_VERIFIED,"E-posta adresi doğrulanmamış.");
+        }
+
+        String accessToken = jwtService.generateToken(user.get());
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.get());
+
+        user.get().updateLastLogin();
+        userRepository.save(user.get());
 
         return DtoLoginResponse.builder()
                 .accessToken(accessToken)
@@ -109,26 +126,28 @@ public class AuthServiceImpl implements IAuthService {
     @Override
     @Transactional
     public void verifyEmail(String token) {
-        EmailVerificationToken verificationToken = emailVerificationTokenRepository.findByToken(token)
-                .orElseThrow(() -> new InvalidTokenException("Invalid verification token"));
+        Optional<EmailVerificationToken> verificationToken = emailVerificationTokenRepository.findByToken(token);
 
-        if(verificationToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new TokenExpiredException("Verification token has expired.");
+        if(verificationToken.isEmpty()) {
+            new ErrorMessage(MessageType.INVALID_TOKEN,"Geçersiz token.");
         }
 
-        User user = verificationToken.getUser();
+
+        if(verificationToken.get().getExpiryDate().isBefore(LocalDateTime.now())) {
+             new ErrorMessage(MessageType.TOKEN_EXPIRED,"Verification token has expired.");
+        }
+
+        User user = verificationToken.get().getUser();
         user.setIsVerified(true);
         userRepository.save(user);
 
-        emailVerificationTokenRepository.delete(verificationToken);
+        emailVerificationTokenRepository.delete(verificationToken.get());
 
     }
 
     @Override
     public void forgotPassword(DtoForgotPasswordRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UserNotFoundException("User not found with email : " + request.getEmail()));
-
+        Optional<User> user = userRepository.findByEmail(request.getEmail());
         String resetToken = UUID.randomUUID().toString();
 
     }

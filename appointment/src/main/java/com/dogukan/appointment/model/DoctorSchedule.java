@@ -61,17 +61,6 @@ public class DoctorSchedule {
     private Boolean isActive = true;
 
 
-    public String getDayName() {
-        return switch (dayOfWeek) {
-            case 1 -> "Pazartesi";
-            case 2 -> "Salı";
-            case 3 -> "Çarşamba";
-            case 4 -> "Perşembe";
-            case 5 -> "Cuma";
-            case 6 -> "Cumartesi";
-            case 7 -> "Pazar";
-            default -> "Bilinmeyen";
-        };
-    }
+
 
 }

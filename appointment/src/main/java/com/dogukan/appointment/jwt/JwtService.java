@@ -1,6 +1,5 @@
 package com.dogukan.appointment.jwt;
 
-import com.dogukan.appointment.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -12,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import java.security.Key;
 import java.util.Date;
-import java.util.Map;
 import java.util.function.Function;
 
 @Service
@@ -46,7 +44,9 @@ public class JwtService {
                 .parseClaimsJws(token).getBody();
     }
 
-    public
+    public String extractUserEmail(String token) {
+        return getClaims(token).getSubject();
+    }
 
     public String getUsernameByToken(String token) {
         return exportToken(token,Claims::getSubject);

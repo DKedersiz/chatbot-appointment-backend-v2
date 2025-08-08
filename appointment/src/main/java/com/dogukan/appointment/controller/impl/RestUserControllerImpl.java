@@ -1,7 +1,7 @@
 package com.dogukan.appointment.controller.impl;
 
 import com.dogukan.appointment.controller.IRestUserController;
-import com.dogukan.appointment.dto.DtoUser;
+import com.dogukan.appointment.dto.user.DtoUser;
 import com.dogukan.appointment.dto.DtoUserIU;
 import com.dogukan.appointment.model.RootEntity;
 import com.dogukan.appointment.service.IUserService;

@@ -1,6 +1,6 @@
 package com.dogukan.appointment.service.impl;
 
-import com.dogukan.appointment.dto.DtoUser;
+import com.dogukan.appointment.dto.user.DtoUser;
 import com.dogukan.appointment.dto.DtoUserIU;
 import com.dogukan.appointment.enums.Role;
 import com.dogukan.appointment.mapper.UserMapper;
@@ -8,7 +8,6 @@ import com.dogukan.appointment.model.User;
 import com.dogukan.appointment.repository.UserRepository;
 import com.dogukan.appointment.service.IUserService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

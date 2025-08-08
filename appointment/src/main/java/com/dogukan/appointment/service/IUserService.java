@@ -1,6 +1,6 @@
 package com.dogukan.appointment.service;
 
-import com.dogukan.appointment.dto.DtoUser;
+import com.dogukan.appointment.dto.user.DtoUser;
 import com.dogukan.appointment.dto.DtoUserIU;
 import jakarta.validation.Valid;
 

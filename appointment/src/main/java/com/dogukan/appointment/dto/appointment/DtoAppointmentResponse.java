@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @NoArgsConstructor
 @AllArgsConstructor
-public class DtoAppointment {
+public class DtoAppointmentResponse {
 
     private UUID appointmentId;
 

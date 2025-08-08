@@ -1,1 +1,1 @@
-"# chatbot-appointment-backend-v2" 
+"Hospital appointment system with a appointment-bot integrated to it. Made it using Spring Boot for back-end, React for front-end and PostgreSQL for DB. Also used Gemini AI for the apppoinment-bot's core.

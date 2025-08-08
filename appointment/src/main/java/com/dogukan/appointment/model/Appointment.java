@@ -28,7 +28,7 @@ import java.util.UUID;
         @Index(name = "idx_appointment_user_date",columnList = "user_id, appointment_date"),
         @Index(name = "idx_appointment_doctor_date",columnList = "doctor_id, appointment_date")
 })
-public class Appointment {
+public class    Appointment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -90,6 +90,21 @@ public class Appointment {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+
+    public boolean canBeCancelled() {
+        if(status != AppointmentStatus.PENDING && status != AppointmentStatus.CONFIRMED) {
+            return false;
+        }
+
+        LocalDateTime appointmentDateTime = LocalDateTime.of(appointmentDate, appointmentTime);
+        if(appointmentDateTime.isBefore(LocalDateTime.now())) {
+            return false;
+        }
+
+        LocalDateTime cancellationDeadline = appointmentDateTime.minusHours(24);
+        return LocalDateTime.now().isBefore(cancellationDeadline);
+    }
 
 
 }

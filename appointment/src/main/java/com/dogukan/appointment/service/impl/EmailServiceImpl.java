@@ -31,6 +31,9 @@ public class EmailServiceImpl implements IEmailService {
     @Value("${app_base_url}")
     private String baseUrl;
 
+    @Value("${spring.mail.username}")
+    private String fromEmail;
+
 
     @Override
     public void sendVerificationEmail(String recipientEmail,String verificationToken) {
@@ -57,8 +60,19 @@ public class EmailServiceImpl implements IEmailService {
     }
 
     @Override
-    public void sendPasswordResetEmail(String recipientEmail, String resetToken) {
-
+    public void sendPasswordResetEmail(String email, String token   ) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail);
+            helper.setTo(email);
+            helper.setSubject("Şifre Sıfırlama");
+            String resetLink = "http://localhost:8080/api/auth/reset-password?token=" + token;
+            helper.setText("Şifrenizi sıfırlamak için aşağıdaki bağlantıya tıklayın: <a href=\"" + resetLink + "\">Şifreyi Sıfırla</a>", true);
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            throw new RuntimeException("E-posta gönderilemedi: " + e.getMessage());
+        }
     }
 
 

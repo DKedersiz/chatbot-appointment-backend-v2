@@ -1,5 +1,8 @@
 package com.dogukan.appointment.service.impl;
 
+import com.dogukan.appointment.exception.BaseException;
+import com.dogukan.appointment.exception.ErrorMessage;
+import com.dogukan.appointment.exception.MessageType;
 import com.dogukan.appointment.jwt.JwtService;
 import com.dogukan.appointment.model.RefreshToken;
 import com.dogukan.appointment.model.User;
@@ -48,7 +51,7 @@ public class RefreshTokenServiceImpl implements IRefreshTokenService {
 
         if(token.getExpiredDate().before(new Date())) {
             refreshTokenRepository.delete(token);
-            throw new RuntimeException("Refresh token expired");
+            throw new BaseException(new ErrorMessage(MessageType.TOKEN_EXPIRED,"Token süresi geçmiş"));
         }
 
         User user = token.getUser();

@@ -30,7 +30,7 @@ public class ChatSession {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "session_id", updatable = false, nullable = false)
-    private UUID sessionId;
+    private UUID chatSessionId;
 
     @NotNull(message = "Kullanıcı bilgisi gereklidir.")
     @ManyToOne(fetch = FetchType.LAZY)
@@ -62,9 +62,11 @@ public class ChatSession {
     private String aiModelUsed;
 
     @Column(name = "total_messages")
+    @Builder.Default
     private Integer totalMessages = 0;
 
     @Column(name = "total_tokens_used")
+    @Builder.Default
     private Integer totalTokensUsed = 0;
 
     @Size(max = 200, message = "Kullanıcı agent bilgisi 200 karakterden uzun olamaz.")

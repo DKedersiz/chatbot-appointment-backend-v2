@@ -2,11 +2,11 @@ package com.dogukan.appointment.controller.impl;
 
 import com.dogukan.appointment.controller.IRestUserController;
 import com.dogukan.appointment.dto.user.DtoUser;
-import com.dogukan.appointment.dto.DtoUserIU;
+import com.dogukan.appointment.dto.user.DtoUserIU;
 import com.dogukan.appointment.model.RootEntity;
 import com.dogukan.appointment.service.IUserService;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
@@ -23,37 +23,44 @@ public class RestUserControllerImpl implements IRestUserController {
     }
 
     @Override
-    public RootEntity<DtoUser> createUser(DtoUserIU dtoUserIU) {
+    @PostMapping(path = "/create")
+    public RootEntity<DtoUser> createUser(@Valid @RequestBody DtoUserIU dtoUserIU) {
         return RootEntity.ok(userService.createUser(dtoUserIU));
     }
 
     @Override
-    public RootEntity<Optional<DtoUser>> getUserById(UUID id) {
+    @GetMapping(path = "/getUserById/{id}")
+    public RootEntity<Optional<DtoUser>> getUserById(@PathVariable UUID id) {
         return RootEntity.ok(userService.getUserById(id));
     }
 
     @Override
-    public RootEntity<DtoUser> getUserByTckNo(String tckNo) {
+    @GetMapping(path = "/getUserByTckNo/{tckNo}")
+    public RootEntity<DtoUser> getUserByTckNo(@PathVariable String tckNo) {
         return RootEntity.ok(userService.getUserByTckNo(tckNo));
     }
 
     @Override
+    @GetMapping(path = "/getAllUsers")
     public RootEntity<List<DtoUser>> getAllUsers() {
         return RootEntity.ok(userService.getAllUsers());
     }
 
     @Override
-    public RootEntity<DtoUser> updateUser(DtoUserIU dtoUserIU, UUID uuid) {
+    @PutMapping(path = "/updateUser/{uuid}")
+    public RootEntity<DtoUser> updateUser(@Valid @RequestBody DtoUserIU dtoUserIU,@PathVariable UUID uuid) {
         return RootEntity.ok(userService.updateUser(uuid,dtoUserIU));
     }
 
     @Override
-    public RootEntity<String> deleteUser(UUID id) {
+    @DeleteMapping(path = "/delete/{id}")
+    public RootEntity<String> deleteUser(@PathVariable UUID id) {
         return RootEntity.ok(userService.deleteUser(id));
     }
 
     @Override
-    public RootEntity<List<DtoUser>> searchUsersByName(String firstName, String lastName) {
+    @GetMapping("/searchUsersByName/{firstName}+{lastName}")
+    public RootEntity<List<DtoUser>> searchUsersByName(@PathVariable String firstName, @PathVariable String lastName) {
         return RootEntity.ok(userService.searchUsersByName(firstName,lastName));
     }
 }

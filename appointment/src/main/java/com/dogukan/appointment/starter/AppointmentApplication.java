@@ -6,10 +6,10 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-@SpringBootApplication
-@EnableJpaRepositories
-@ComponentScan(basePackages = "com.dogukan")
-@EntityScan(basePackages = "com.dogukan.model")
+@SpringBootApplication(scanBasePackages = {"com.dogukan.appointment"})
+@EnableJpaRepositories(basePackages = {"com.dogukan.appointment"})
+@ComponentScan(basePackages = "com.dogukan.appointment")
+@EntityScan(basePackages = "com.dogukan.appointment.model")
 public class AppointmentApplication {
 
 	public static void main(String[] args) {

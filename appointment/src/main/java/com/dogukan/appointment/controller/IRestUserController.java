@@ -1,7 +1,7 @@
 package com.dogukan.appointment.controller;
 
 import com.dogukan.appointment.dto.user.DtoUser;
-import com.dogukan.appointment.dto.DtoUserIU;
+import com.dogukan.appointment.dto.user.DtoUserIU;
 import com.dogukan.appointment.model.RootEntity;
 
 import java.util.List;

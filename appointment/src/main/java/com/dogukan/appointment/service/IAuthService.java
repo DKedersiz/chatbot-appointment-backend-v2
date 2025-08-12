@@ -1,13 +1,14 @@
 package com.dogukan.appointment.service;
 
 import com.dogukan.appointment.dto.*;
+import com.dogukan.appointment.model.RootEntity;
 
 public interface IAuthService {
 
-    void register(DtoRegisterRequest request);
+    String register(DtoRegisterRequest request);
     DtoLoginResponse login(DtoLoginRequest request);
     RefreshTokenResponse refreshToken(String refreshToken);
-    void verifyEmail(String token);
-    void forgotPassword(DtoForgotPasswordRequest request);
-    void resetPassword(DtoResetPasswordRequest request);
+    String verifyEmail(String token);
+    String forgotPassword(DtoForgotPasswordRequest request);
+    String resetPassword(DtoResetPasswordRequest request);
 }

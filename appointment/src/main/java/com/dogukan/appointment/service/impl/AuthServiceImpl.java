@@ -52,7 +52,7 @@ public class AuthServiceImpl implements IAuthService {
 
     @Override
     @Transactional
-    public void register(DtoRegisterRequest request) {
+    public String register(DtoRegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BaseException(new ErrorMessage(MessageType.EMAIL_ALREADY_EXISTS, "E-posta hali hazırda kullanılıyor."));
         }
@@ -81,6 +81,7 @@ public class AuthServiceImpl implements IAuthService {
                 .build();
         emailVerificationTokenRepository.save(verificationToken);
         emailService.sendVerificationEmail(savedUser.getEmail(), token);
+        return "Kayıt başarıyla oluşturuldu. Lütfen e-postanızı kontrol edip hesabınızı onaylayın.";
     }
 
     @Override
@@ -113,7 +114,7 @@ public class AuthServiceImpl implements IAuthService {
 
     @Override
     @Transactional
-    public void verifyEmail(String token) {
+    public String verifyEmail(String token) {
         Optional<EmailVerificationToken> verificationToken = emailVerificationTokenRepository.findByToken(token);
         if (verificationToken.isEmpty()) {
             throw new BaseException(new ErrorMessage(MessageType.INVALID_TOKEN, "Geçersiz token."));
@@ -125,11 +126,12 @@ public class AuthServiceImpl implements IAuthService {
         user.setIsVerified(true);
         userRepository.save(user);
         emailVerificationTokenRepository.delete(verificationToken.get());
+        return "E-posta başarıyla doğrulandı.";
     }
 
     @Override
     @Transactional
-    public void forgotPassword(DtoForgotPasswordRequest request) {
+    public String forgotPassword(DtoForgotPasswordRequest request) {
         Optional<User> user = userRepository.findByEmail(request.getEmail());
         if (user.isEmpty()) {
             throw new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, "Bu e-posta ile kullanıcı bulunamadı."));
@@ -142,11 +144,12 @@ public class AuthServiceImpl implements IAuthService {
                 .build();
         emailVerificationTokenRepository.save(resetPasswordToken);
         emailService.sendPasswordResetEmail(user.get().getEmail(), resetToken);
+        return "Şifre sıfırlama isteği gönderildi.";
     }
 
     @Override
     @Transactional
-    public void resetPassword(DtoResetPasswordRequest request) {
+    public String resetPassword(DtoResetPasswordRequest request) {
         Optional<EmailVerificationToken> resetToken = emailVerificationTokenRepository.findByToken(request.getToken());
         if (resetToken.isEmpty()) {
             throw new BaseException(new ErrorMessage(MessageType.INVALID_TOKEN, "Geçersiz şifre sıfırlama token’ı."));
@@ -158,5 +161,6 @@ public class AuthServiceImpl implements IAuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         userRepository.save(user);
         emailVerificationTokenRepository.delete(resetToken.get());
+        return "Şifre sıfırlama isteği gönderildi.";
     }
 }

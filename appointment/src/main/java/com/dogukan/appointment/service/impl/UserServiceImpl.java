@@ -1,20 +1,25 @@
 package com.dogukan.appointment.service.impl;
 
 import com.dogukan.appointment.dto.user.DtoUser;
-import com.dogukan.appointment.dto.DtoUserIU;
-import com.dogukan.appointment.enums.Role;
+import com.dogukan.appointment.dto.user.DtoUserIU;
+import com.dogukan.appointment.exception.BaseException;
+import com.dogukan.appointment.exception.ErrorMessage;
+import com.dogukan.appointment.exception.MessageType;
 import com.dogukan.appointment.mapper.UserMapper;
 import com.dogukan.appointment.model.User;
 import com.dogukan.appointment.repository.UserRepository;
 import com.dogukan.appointment.service.IUserService;
-import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
-import java.util.DuplicateFormatFlagsException;
+import jakarta.validation.Valid;
+import jakarta.validation.groups.Default;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,14 +27,13 @@ import java.util.UUID;
 @Slf4j
 @Validated
 @Service
-@Transactional(readOnly = true)
-public class UserServiceImpl implements IUserService {
+public class UserServiceImpl implements IUserService, UserDetailsService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(UserRepository userRepository,UserMapper userMapper,PasswordEncoder passwordEncoder) {
+    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
@@ -37,32 +41,20 @@ public class UserServiceImpl implements IUserService {
 
     @Override
     @Transactional
+    @Validated({DtoUserIU.CreateValidation.class, Default.class})
     public DtoUser createUser(@Valid DtoUserIU dtoUser) {
         log.info("Creating new user with email : {}", dtoUser.getEmail());
 
-        if(userRepository.existsByEmail(dtoUser.getEmail())) {
-            throw new DuplicateFormatFlagsException("Bu e-posta adresi ile kayıtlı kullanıcı var.");
+        if (userRepository.existsByEmail(dtoUser.getEmail())) {
+            throw new BaseException(new ErrorMessage(MessageType.EMAIL_ALREADY_EXISTS, "Bu e-posta adresi ile kayıtlı kullanıcı var."));
         }
 
-        if(userRepository.existsByTckNo(dtoUser.getTckNo())) {
-            throw new DuplicateFormatFlagsException("Bu TC Kimlik numarası ile kayıtlı kullanıcı var.");
+        if (userRepository.existsByTckNo(dtoUser.getTckNo())) {
+            throw new BaseException(new ErrorMessage(MessageType.TCKNO_ALREADY_EXISTS, "Bu TC Kimlik numarası ile kayıtlı kullanıcı var."));
         }
 
-        User user = User.builder()
-                .tckNo(dtoUser.getTckNo())
-                .firstName(dtoUser.getFirstName())
-                .lastName(dtoUser.getLastName())
-                .email(dtoUser.getEmail())
-                .address(dtoUser.getAddress())
-                .phoneNumber(dtoUser.getPhoneNumber())
-                .gender(dtoUser.getGender())
-                .password(passwordEncoder.encode(dtoUser.getPassword()))
-                .role(Role.USER)
-                .isActive(true)
-                .isVerified(false)
-                .failedLoginAttempts(0)
-                .build();
-
+        User user = userMapper.fromDtoUserIU(dtoUser);
+        user.setPassword(passwordEncoder.encode(dtoUser.getPassword()));
         User savedUser = userRepository.save(user);
         log.info("User successfully created");
 
@@ -77,58 +69,45 @@ public class UserServiceImpl implements IUserService {
 
     @Override
     public DtoUser getUserByEmail(String email) {
-        Optional<User> foundUser = userRepository.findByEmail(email);
-        return userMapper.toDto(foundUser.get());
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, "Kullanıcı bulunamadı: " + email)));
+        return userMapper.toDto(user);
     }
 
     @Override
     public DtoUser getUserByTckNo(String tckNo) {
         log.info("Getting user by TckNo: {}", tckNo);
-        Optional<User> foundUser = userRepository.findByTckNo(tckNo);
-        return userMapper.toDto(foundUser.get());
+        User user = userRepository.findByTckNo(tckNo)
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, "Kullanıcı bulunamadı: " + tckNo)));
+        return userMapper.toDto(user);
     }
 
     @Override
     public List<DtoUser> getAllUsers() {
-        return userRepository.findAll().stream().map(userMapper::toDto).toList();
+        return userRepository.findAll().stream()
+                .map(userMapper::toDto)
+                .toList();
     }
 
     @Override
     @Transactional
-    public DtoUser updateUser(UUID id,DtoUserIU dtoUser) {
+    @Validated(Default.class)
+    public DtoUser updateUser(UUID id, @Valid DtoUserIU dtoUser) {
         log.info("Updating user with id : {}", id);
 
-        Optional<User> existingUser = userRepository.findById(id);
+        User existingUser = userRepository.findById(id)
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, "Kullanıcı bulunamadı: " + id)));
 
-        if(dtoUser.getEmail() != null && !dtoUser.getEmail().equals(existingUser.get().getEmail()) && userRepository.existsByEmail(dtoUser.getEmail())) {
-            throw new IllegalArgumentException("Bu e-posta adresi zaten kullanımda.");
+        if (dtoUser.getEmail() != null && !dtoUser.getEmail().equals(existingUser.getEmail()) && userRepository.existsByEmail(dtoUser.getEmail())) {
+            throw new BaseException(new ErrorMessage(MessageType.EMAIL_ALREADY_EXISTS, "Bu e-posta adresi zaten kullanımda."));
         }
 
-        if(dtoUser.getFirstName() != null) {
-            existingUser.get().setFirstName(dtoUser.getFirstName());
+        userMapper.updateUserFromDto(dtoUser, existingUser);
+        if (dtoUser.getPassword() != null) {
+            existingUser.setPassword(passwordEncoder.encode(dtoUser.getPassword()));
         }
 
-        if(dtoUser.getLastName() != null) {
-            existingUser.get().setLastName(dtoUser.getLastName());
-        }
-
-        if(dtoUser.getAddress() != null) {
-            existingUser.get().setAddress(dtoUser.getAddress());
-        }
-
-        if(dtoUser.getPhoneNumber() != null) {
-            existingUser.get().setPhoneNumber(dtoUser.getPhoneNumber());
-        }
-
-        if(dtoUser.getGender() != null) {
-            existingUser.get().setGender(dtoUser.getGender());
-        }
-
-        if(dtoUser.getEmail() != null) {
-            existingUser.get().setEmail(dtoUser.getEmail());
-        }
-
-        User updatedUser = userRepository.save(existingUser.get());
+        User updatedUser = userRepository.save(existingUser);
         log.info("User updated successfully");
 
         return userMapper.toDto(updatedUser);
@@ -139,10 +118,9 @@ public class UserServiceImpl implements IUserService {
     public String deleteUser(UUID id) {
         log.info("Deleting user with id : {}", id);
 
-        User user = userRepository.findById(id).orElse(null);
-        if(user != null) {
-            userRepository.delete(user);
-        }
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, "Kullanıcı bulunamadı: " + id)));
+        userRepository.delete(user);
         return "Kullanıcı başarıyla silindi.";
     }
 
@@ -155,5 +133,11 @@ public class UserServiceImpl implements IUserService {
                 lastName != null ? lastName : ""
         );
         return userMapper.toDtoList(users);
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        return userRepository.findByEmail(username)
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, "Kullanıcı bulunamadı: " + username)));
     }
 }

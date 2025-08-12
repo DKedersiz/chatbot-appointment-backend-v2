@@ -33,7 +33,7 @@ public class GlobalExceptionHandler {
         ApiError<E> apiError = new ApiError<>();
         apiError.setStatus(HttpStatus.BAD_REQUEST.value());
 
-        Exception<E>  exception = new Exception<>();
+        Exception<E> exception = new Exception<>();
         exception.setCreateTime(new Date());
         exception.setHostName(getHostName());
         exception.setPath(request.getDescription(false).substring(4));

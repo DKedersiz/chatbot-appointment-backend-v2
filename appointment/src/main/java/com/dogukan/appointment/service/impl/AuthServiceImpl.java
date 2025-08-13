@@ -69,7 +69,7 @@ public class AuthServiceImpl implements IAuthService {
                 .gender(request.getGender())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.USER)
-                .isVerified(false)
+                .isVerified(true)
                 .isActive(true)
                 .build();
         User savedUser = userRepository.save(user);

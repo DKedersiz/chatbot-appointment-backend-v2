@@ -14,7 +14,6 @@ import com.dogukan.appointment.repository.UserRepository;
 import com.dogukan.appointment.service.IAuthService;
 import com.dogukan.appointment.service.IEmailService;
 import com.dogukan.appointment.service.IRefreshTokenService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,8 +27,6 @@ import java.util.UUID;
 @Service
 public class AuthServiceImpl implements IAuthService {
 
-    @Value("${JWT_SECRET_KEY}")
-    private String secretKey;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -69,7 +66,7 @@ public class AuthServiceImpl implements IAuthService {
                 .gender(request.getGender())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.USER)
-                .isVerified(true)
+                .isVerified(false)
                 .isActive(true)
                 .build();
         User savedUser = userRepository.save(user);

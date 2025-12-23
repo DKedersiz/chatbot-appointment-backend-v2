@@ -16,6 +16,7 @@ import com.dogukan.appointment.service.IEmailService;
 import com.dogukan.appointment.service.IRefreshTokenService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -85,19 +86,32 @@ public class AuthServiceImpl implements IAuthService {
     public DtoLoginResponse login(DtoLoginRequest request) {
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
         Optional<User> user = userRepository.findByEmail(request.getEmail());
+
+        // Bu kontrol zaten authenticationManager tarafından yapılmalı, ancak ek koruma olarak bırakılabilir.
         if (user.isEmpty()) {
             throw new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, "Bu e-posta ile kullanıcı bulunamadı."));
         }
-        if (!user.get().getIsVerified()) {
+
+        User authenticatedUser = user.get();
+
+        if (!authenticatedUser.getIsVerified()) {
             throw new BaseException(new ErrorMessage(MessageType.EMAIL_NOT_VERIFIED, "E-posta adresi doğrulanmamış."));
         }
-        String accessToken = jwtService.generateToken(user.get());
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.get());
-        user.get().updateLastLogin();
-        userRepository.save(user.get());
+
+        String accessToken = jwtService.generateToken(authenticatedUser);
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(authenticatedUser);
+
+        authenticatedUser.updateLastLogin();
+        userRepository.save(authenticatedUser);
+
+        // KRİTİK DÜZELTME: Kullanıcı bilgilerini DTO'ya ekle
         return DtoLoginResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken.getRefreshToken())
+                .accessToken(accessToken) // Cookie'de de gönderilse de DTO'da kalabilir
+                .refreshToken(refreshToken.getRefreshToken()) // Cookie'de de gönderilse de DTO'da kalabilir
+                .userId(authenticatedUser.getUserId()) // <-- EKLENDİ
+                .firstName(authenticatedUser.getFirstName()) // <-- EKLENDİ
+                .lastName(authenticatedUser.getLastName()) // <-- EKLENDİ
+                .role(authenticatedUser.getRole().name()) // <-- EKLENDİ
                 .build();
     }
 

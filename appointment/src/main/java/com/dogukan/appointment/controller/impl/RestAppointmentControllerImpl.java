@@ -54,9 +54,9 @@ public class RestAppointmentControllerImpl implements IRestAppointmentController
 
     @Override
     @GetMapping("/user/{userId}")
-    @PreAuthorize("hasRole('USER') and #userId == authentication.principal.userId or hasRole('ADMIN')")
-    public RootEntity<List<DtoAppointmentResponse>> getAllAppointmentsByUserId(@PathVariable UUID id) {
-        return RootEntity.ok(appointmentService.getAllAppointmentsByUserId(id));
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('USER') and #userId.toString() == authentication.principal.userId.toString())")
+    public RootEntity<List<DtoAppointmentResponse>> getAllAppointmentsByUserId(@PathVariable UUID userId) {
+        return RootEntity.ok(appointmentService.getAllAppointmentsByUserId(userId));
     }
 
     @Override

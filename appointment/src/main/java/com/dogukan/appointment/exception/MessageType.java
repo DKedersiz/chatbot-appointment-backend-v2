@@ -14,7 +14,8 @@ public enum MessageType {
     DOCTOR_NOT_AVAILABLE("1011","Doktor müsait değil."),
     DOCTOR_NOT_FOUND("1012","Doktor bulunamadı."),
     EMAIL_ALREADY_EXISTS("1013","Bu e-posta adresi daha önce kullanılmış"),
-    TCKNO_ALREADY_EXISTS("1014","Bu TC Kimlik numarası daha önce kullanılmış.");
+    TCKNO_ALREADY_EXISTS("1014","Bu TC Kimlik numarası daha önce kullanılmış."),
+    UNAUTHORIZED_REQUEST("1015","Yetkisiz erişim isteği.");
 
     private String code;
     private String message;

@@ -1,13 +1,16 @@
 package com.dogukan.appointment.service.impl;
 
 import com.dogukan.appointment.dto.doctor.DtoDoctorCreate;
+import com.dogukan.appointment.dto.doctor.DtoDoctorListResponse;
 import com.dogukan.appointment.dto.doctor.DtoDoctorResponse;
 import com.dogukan.appointment.dto.doctor.DtoDoctorUpdate;
 import com.dogukan.appointment.exception.BaseException;
 import com.dogukan.appointment.exception.ErrorMessage;
 import com.dogukan.appointment.exception.MessageType;
 import com.dogukan.appointment.mapper.DoctorMapper;
+import com.dogukan.appointment.model.Department;
 import com.dogukan.appointment.model.Doctor;
+import com.dogukan.appointment.model.User;
 import com.dogukan.appointment.repository.DepartmentRepository;
 import com.dogukan.appointment.repository.DoctorRepository;
 import com.dogukan.appointment.repository.UserRepository;
@@ -16,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class DoctorServiceImpl implements IDoctorService {
@@ -91,9 +95,28 @@ public class DoctorServiceImpl implements IDoctorService {
     }
 
     @Override
-    public List<DtoDoctorResponse> getAllDoctors() {
-        List<Doctor> doctors = doctorRepository.findAll();
-        return doctorMapper.toDtoDoctorResponseList(doctors);
+    public List<DtoDoctorListResponse> getAllDoctors() {
+        return doctorRepository.findAll().stream()
+                .map(doctor -> {
+                    User user = doctor.getUser();
+                    Department dept = doctor.getDepartment();
+
+                    DtoDoctorListResponse dto = new DtoDoctorListResponse();
+                    dto.setDoctorId(doctor.getDoctorId());
+                    dto.setName(user.getFirstName());
+                    dto.setSurname(user.getLastName());
+                    dto.setFullName(doctor.getTitle() + " " + user.getFirstName() + " " + user.getLastName());
+                    dto.setDepartmentName(dept != null ? dept.getDepartmentName() : "Bölüm Belirtilmemiş");
+                    dto.setTitle(doctor.getTitle());
+                    dto.setSpecialization(doctor.getSpecialization());
+                    dto.setExperienceYears(doctor.getExperienceYears());
+                    dto.setIsAvailable(doctor.getIsAvailable());
+                    dto.setIsActive(doctor.getIsActive());
+                    dto.setAbout(doctor.getAbout());
+
+                    return dto;
+                })
+                .toList();
     }
 
     @Override

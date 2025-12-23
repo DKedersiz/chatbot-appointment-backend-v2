@@ -2,6 +2,7 @@ package com.dogukan.appointment.controller.impl;
 
 import com.dogukan.appointment.controller.IRestDoctorController;
 import com.dogukan.appointment.dto.doctor.DtoDoctorCreate;
+import com.dogukan.appointment.dto.doctor.DtoDoctorListResponse;
 import com.dogukan.appointment.dto.doctor.DtoDoctorResponse;
 import com.dogukan.appointment.dto.doctor.DtoDoctorUpdate;
 import com.dogukan.appointment.model.RootEntity;
@@ -14,7 +15,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping(path = "/rest/api/doctor")
+@RequestMapping(path = "/rest/api/doctors")
 public class RestDoctorControllerImpl implements IRestDoctorController {
 
     private final IDoctorService doctorService;
@@ -25,14 +26,14 @@ public class RestDoctorControllerImpl implements IRestDoctorController {
 
     @Override
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('USER')")
     public RootEntity<DtoDoctorResponse> createDoctor(@Valid @RequestBody DtoDoctorCreate request) {
         return RootEntity.ok(doctorService.createDoctor(request));
     }
 
     @Override
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('USER')")
     public RootEntity<DtoDoctorResponse> updateDoctor(@PathVariable UUID id,@Valid
     @RequestBody DtoDoctorUpdate request) {
         return RootEntity.ok(doctorService.updateDoctor(id,request));
@@ -48,7 +49,7 @@ public class RestDoctorControllerImpl implements IRestDoctorController {
     @Override
     @GetMapping
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    public RootEntity<List<DtoDoctorResponse>> getAllDoctors() {
+    public RootEntity<List<DtoDoctorListResponse>> getAllDoctors() {
         return RootEntity.ok(doctorService.getAllDoctors());
     }
 

@@ -37,7 +37,7 @@ public class EmailServiceImpl implements IEmailService {
 
     @Override
     public void sendVerificationEmail(String recipientEmail,String verificationToken) {
-        String verificationUrl = baseUrl + "/api/auth/verify-email?token=" + verificationToken;
+        String verificationUrl = baseUrl + "/email-dogrulama?token=" + verificationToken;
         String subject = "Hesabınızı Doğrulayın";
 
         try {

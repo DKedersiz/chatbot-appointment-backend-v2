@@ -3,12 +3,22 @@ package com.dogukan.appointment.controller.impl;
 import com.dogukan.appointment.controller.IRestAuthController;
 import com.dogukan.appointment.controller.RestBaseController;
 import com.dogukan.appointment.dto.*;
+import com.dogukan.appointment.dto.user.DtoUserResponse;
+import com.dogukan.appointment.exception.BaseException;
+import com.dogukan.appointment.exception.ErrorMessage;
+import com.dogukan.appointment.exception.MessageType;
 import com.dogukan.appointment.model.RootEntity;
+import com.dogukan.appointment.model.User;
 import com.dogukan.appointment.service.IAuthService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true", exposedHeaders = "Set-Cookie")
 @RequestMapping(path = "/rest/api/auth")
 public class RestAuthControllerImpl extends RestBaseController implements IRestAuthController  {
 
@@ -19,6 +29,7 @@ public class RestAuthControllerImpl extends RestBaseController implements IRestA
     }
 
     @Override
+
     @PostMapping(path = "/register")
     public RootEntity<String> register(@Valid @RequestBody DtoRegisterRequest request) {
         return RootEntity.ok(authService.register(request));
@@ -26,8 +37,37 @@ public class RestAuthControllerImpl extends RestBaseController implements IRestA
 
     @Override
     @PostMapping(path = "/login")
-    public RootEntity<DtoLoginResponse> login(@Valid @RequestBody DtoLoginRequest request) {
-        return RootEntity.ok(authService.login(request));
+    public RootEntity<DtoLoginResponse> login(
+            @Valid @RequestBody DtoLoginRequest request,
+            HttpServletResponse response) {
+
+        DtoLoginResponse dto = authService.login(request);
+
+
+        boolean isLocalhost = true;
+
+        ResponseCookie accessCookie = ResponseCookie.from("accessToken", dto.getAccessToken())
+                .httpOnly(true)
+                .secure(!isLocalhost)
+                .path("/")
+                .maxAge(60 * 15)
+                .sameSite("Strict")
+                .build();
+
+
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", dto.getRefreshToken())
+                .httpOnly(true)
+                .secure(!isLocalhost)
+                .path("/api/auth/refresh-token")
+                .maxAge(60 * 60 * 24 * 7)
+                .sameSite("Strict")
+                .build();
+
+
+        response.addHeader("Set-Cookie", accessCookie.toString());
+        response.addHeader("Set-Cookie", refreshCookie.toString());
+
+        return RootEntity.ok(dto);
     }
 
     @Override
@@ -52,5 +92,56 @@ public class RestAuthControllerImpl extends RestBaseController implements IRestA
     @PostMapping(path = "/resetPassword")
     public RootEntity<String> resetPassword(@Valid @RequestBody DtoResetPasswordRequest request) {
         return RootEntity.ok(authService.resetPassword(request));
+    }
+
+    @PostMapping(path = "/logout")
+    public RootEntity<String> logout(HttpServletResponse response) {
+
+        boolean isLocalhost = true;
+
+
+        ResponseCookie accessCookie = ResponseCookie.from("accessToken", "")
+                .httpOnly(true)
+                .secure(!isLocalhost)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+
+
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .secure(!isLocalhost)
+                .path("/api/auth/refresh-token")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+
+        response.addHeader("Set-Cookie", accessCookie.toString());
+        response.addHeader("Set-Cookie", refreshCookie.toString());
+
+        return RootEntity.ok("Çıkış başarılı.");
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<RootEntity<DtoUserResponse>> me(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated() ||
+                authentication.getPrincipal() instanceof String && "anonymousUser".equals(authentication.getPrincipal())) {
+            return ResponseEntity.status(401).body(
+                    RootEntity.error(String.valueOf(new ErrorMessage(MessageType.UNAUTHORIZED_REQUEST, "Oturum bulunamadı")))
+            );
+        }
+
+        User user = (User) authentication.getPrincipal();
+
+        DtoUserResponse response = DtoUserResponse.builder()
+                .userId(user.getUserId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .role(user.getRole().name())
+                .build();
+
+        return ResponseEntity.ok(RootEntity.ok(response));
     }
 }

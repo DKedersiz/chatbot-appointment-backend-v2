@@ -1,6 +1,7 @@
 package com.dogukan.appointment.service;
 
 import com.dogukan.appointment.dto.doctor.DtoDoctorCreate;
+import com.dogukan.appointment.dto.doctor.DtoDoctorListResponse;
 import com.dogukan.appointment.dto.doctor.DtoDoctorResponse;
 import com.dogukan.appointment.dto.doctor.DtoDoctorUpdate;
 
@@ -11,7 +12,7 @@ public interface IDoctorService {
     DtoDoctorResponse createDoctor(DtoDoctorCreate request);
     DtoDoctorResponse updateDoctor(UUID id, DtoDoctorUpdate request);
     DtoDoctorResponse getDoctorById(UUID id);
-    List<DtoDoctorResponse> getAllDoctors();
+    List<DtoDoctorListResponse> getAllDoctors();
     String deleteDoctor(UUID id);
 
 }

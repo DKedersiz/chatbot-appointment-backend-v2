@@ -1,5 +1,6 @@
 package com.dogukan.appointment.jwt;
 
+import com.dogukan.appointment.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -20,14 +21,16 @@ public class JwtService {
     private String jwtSecret;
 
     @Value("${JWT_EXPIRATION}")
-    private long expiration;
+    private long expiration; // ms cinsinden (Örn: 15 dakika = 900000 ms)
 
 
-    public String generateToken(UserDetails user) {
+    public String generateToken(User user) {
         return Jwts.builder()
                 .setSubject(user.getUsername())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() +  1000*60*60*2))
+                .claim("role",user.getRole().name())
+                .claim("userId", user.getUserId().toString()) // <-- EKLENDİ: ID'yi token'a eklemek yetki kontrolünü hızlandırır.
+                .setExpiration(new Date(System.currentTimeMillis() +  expiration)) // <-- DÜZELTME: Yapılandırılan süreyi kullan
                 .signWith(getKey(),SignatureAlgorithm.HS256)
                 .compact();
     }

@@ -50,6 +50,12 @@ public class DoctorSchedule {
     @Column(name = "end_time",nullable = false)
     private LocalTime endTime;
 
+    @Column(name = "lunch_break_start")
+    private LocalTime lunchBreakStart;
+
+    @Column(name = "lunch_break_end")
+    private LocalTime lunchBreakEnd;
+
     @Min(value = 5, message = "Randevu süresi en az 5 dakika olmalıdır.")
     @Max(value = 480, message = "Randevu süresi en fazla 8 saat olabilir.")
     @Builder.Default
@@ -59,8 +65,5 @@ public class DoctorSchedule {
     @Builder.Default
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
-
-
-
 
 }

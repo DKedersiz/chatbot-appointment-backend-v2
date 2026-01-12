@@ -33,7 +33,7 @@ public class    Appointment {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "appointment_id",updatable = false,nullable = false)
-    private UUID appointment_id;
+    private UUID appointmentId;
 
 
     @NotNull(message = "Hasta bilgisi gereklidir.")

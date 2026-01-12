@@ -7,5 +7,5 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ChatbotResponse {
-    private String response;
+    private String chatResponse;
 }

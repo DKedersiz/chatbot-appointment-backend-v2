@@ -3,7 +3,9 @@ package com.dogukan.appointment.dto.appointment;
 import com.dogukan.appointment.enums.AppointmentStatus;
 import com.dogukan.appointment.enums.CancelledBy;
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -12,6 +14,8 @@ import java.util.UUID;
 
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
 public class DtoAppointmentResponse {
 
     private UUID appointmentId;

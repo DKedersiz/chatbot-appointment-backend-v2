@@ -1,5 +1,3 @@
-// src/main/java/com/dogukan/appointment/jwt/JwtAuthFilter.java
-
 package com.dogukan.appointment.jwt;
 
 import jakarta.servlet.FilterChain;
@@ -36,7 +34,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // 1. Bu endpoint’ler için filtreyi atla
         String path = request.getRequestURI();
         if (path.startsWith("/rest/api/auth/register") ||
                 path.startsWith("/rest/api/auth/login") ||
@@ -46,7 +43,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 2. ÖNCE: Cookie’den accessToken’ı dene
         String jwt = null;
 
         Cookie[] cookies = request.getCookies();
@@ -58,7 +54,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     .orElse(null);
         }
 
-        // 3. Cookie yoksa → Authorization header’ını dene (eski yöntem)
         if (jwt == null) {
             String authHeader = request.getHeader("Authorization");
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
@@ -66,13 +61,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
         }
 
-        // 4. Token yoksa → devam et (401 döner)
         if (jwt == null || jwt.isBlank()) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 5. Token geçerli mi?
         String userEmail = jwtService.extractUserEmail(jwt);
         if (userEmail == null || SecurityContextHolder.getContext().getAuthentication() != null) {
             filterChain.doFilter(request, response);

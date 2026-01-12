@@ -1,9 +1,6 @@
 package com.dogukan.appointment.model;
 
 import com.dogukan.appointment.enums.SenderType;
-import com.dogukan.appointment.model.Appointment;
-import com.dogukan.appointment.model.ChatSession;
-import com.dogukan.appointment.model.User;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

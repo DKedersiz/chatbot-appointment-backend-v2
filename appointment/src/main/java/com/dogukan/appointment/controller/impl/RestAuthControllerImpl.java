@@ -4,16 +4,16 @@ import com.dogukan.appointment.controller.IRestAuthController;
 import com.dogukan.appointment.controller.RestBaseController;
 import com.dogukan.appointment.dto.*;
 import com.dogukan.appointment.dto.user.DtoUserResponse;
-import com.dogukan.appointment.exception.BaseException;
-import com.dogukan.appointment.exception.ErrorMessage;
-import com.dogukan.appointment.exception.MessageType;
 import com.dogukan.appointment.model.RootEntity;
 import com.dogukan.appointment.model.User;
 import com.dogukan.appointment.service.IAuthService;
+import com.dogukan.appointment.exception.ErrorMessage;
+import com.dogukan.appointment.exception.MessageType;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,7 +29,6 @@ public class RestAuthControllerImpl extends RestBaseController implements IRestA
     }
 
     @Override
-
     @PostMapping(path = "/register")
     public RootEntity<String> register(@Valid @RequestBody DtoRegisterRequest request) {
         return RootEntity.ok(authService.register(request));
@@ -43,7 +42,6 @@ public class RestAuthControllerImpl extends RestBaseController implements IRestA
 
         DtoLoginResponse dto = authService.login(request);
 
-
         boolean isLocalhost = true;
 
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", dto.getAccessToken())
@@ -54,7 +52,6 @@ public class RestAuthControllerImpl extends RestBaseController implements IRestA
                 .sameSite("Strict")
                 .build();
 
-
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", dto.getRefreshToken())
                 .httpOnly(true)
                 .secure(!isLocalhost)
@@ -62,7 +59,6 @@ public class RestAuthControllerImpl extends RestBaseController implements IRestA
                 .maxAge(60 * 60 * 24 * 7)
                 .sameSite("Strict")
                 .build();
-
 
         response.addHeader("Set-Cookie", accessCookie.toString());
         response.addHeader("Set-Cookie", refreshCookie.toString());
@@ -96,9 +92,7 @@ public class RestAuthControllerImpl extends RestBaseController implements IRestA
 
     @PostMapping(path = "/logout")
     public RootEntity<String> logout(HttpServletResponse response) {
-
         boolean isLocalhost = true;
-
 
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", "")
                 .httpOnly(true)
@@ -107,7 +101,6 @@ public class RestAuthControllerImpl extends RestBaseController implements IRestA
                 .maxAge(0)
                 .sameSite("Lax")
                 .build();
-
 
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true)
@@ -124,15 +117,19 @@ public class RestAuthControllerImpl extends RestBaseController implements IRestA
     }
 
     @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<RootEntity<DtoUserResponse>> me(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated() ||
-                authentication.getPrincipal() instanceof String && "anonymousUser".equals(authentication.getPrincipal())) {
-            return ResponseEntity.status(401).body(
-                    RootEntity.error(String.valueOf(new ErrorMessage(MessageType.UNAUTHORIZED_REQUEST, "Oturum bulunamadı")))
-            );
+                "anonymousUser".equals(authentication.getPrincipal())) {
+            return ResponseEntity.status(401).body(null);
         }
 
-        User user = (User) authentication.getPrincipal();
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof User)) {
+            return ResponseEntity.status(401).body(null);
+        }
+
+        User user = (User) principal;
 
         DtoUserResponse response = DtoUserResponse.builder()
                 .userId(user.getUserId())

@@ -34,15 +34,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String path = request.getRequestURI();
-        if (path.startsWith("/rest/api/auth/register") ||
-                path.startsWith("/rest/api/auth/login") ||
-                path.startsWith("/rest/api/auth/verifyEmail") ||
-                path.startsWith("/rest/api/doctors")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         String jwt = null;
 
         Cookie[] cookies = request.getCookies();
@@ -52,13 +43,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     .map(Cookie::getValue)
                     .findFirst()
                     .orElse(null);
-        }
-
-        if (jwt == null) {
-            String authHeader = request.getHeader("Authorization");
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                jwt = authHeader.substring(7);
-            }
         }
 
         if (jwt == null || jwt.isBlank()) {
@@ -74,7 +58,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
 
-        if (jwtService.isTokenValid(jwt)) {
+        boolean accountUsable = userDetails.isEnabled()
+                && userDetails.isAccountNonLocked()
+                && userDetails.isAccountNonExpired()
+                && userDetails.isCredentialsNonExpired();
+
+        if (accountUsable && jwtService.isTokenValid(jwt)) {
             UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                     userDetails,
                     null,

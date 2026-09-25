@@ -1,14 +1,6 @@
 package com.dogukan.appointment.enums;
 
 public enum Gender {
-    MALE("Erkek"),
-    FEMALE("Kadın");
-
-    private final String displayName;
-
-    Gender(String displayName) {
-        this.displayName = displayName;
-    }
-
-
+    MALE,
+    FEMALE
 }

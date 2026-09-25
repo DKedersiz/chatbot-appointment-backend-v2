@@ -58,11 +58,11 @@ public class DtoAppointmentResponse {
     }
 
     public boolean isToday() {
-        return appointmentDate != null && appointmentDate.equals(LocalDateTime.now());
+        return appointmentDate != null && appointmentDate.equals(LocalDate.now());
     }
 
     public boolean isTomorrow() {
-        return appointmentDate != null && appointmentDate.equals(LocalDateTime.now().plusDays(1));
+        return appointmentDate != null && appointmentDate.equals(LocalDate.now().plusDays(1));
     }
 
     public boolean canBeCancelled() {

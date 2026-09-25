@@ -2,6 +2,7 @@ package com.dogukan.appointment.gemini;
 
 import com.dogukan.appointment.gemini.dto.MessageHistory;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -13,11 +14,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 public class GeminiServiceImpl {
 
     @Value("${GEMINI_API_KEY}")
     private String apiKey;
+
+    private static final int MAX_HISTORY_MESSAGES = 10;
 
     private final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
     private final RestTemplate restTemplate;
@@ -48,7 +52,8 @@ public class GeminiServiceImpl {
         try {
             String systemPrompt = hospitalContext + "\n" + availableSlots + "\nYANITINI MUTLAKA JSON OLARAK VER.";
             List<Map<String, Object>> contents = new ArrayList<>();
-            for (MessageHistory h : history) {
+            List<MessageHistory> recentHistory = history.subList(Math.max(0, history.size() - MAX_HISTORY_MESSAGES), history.size());
+            for (MessageHistory h : recentHistory) {
                 contents.add(Map.of("role", h.getSender().equalsIgnoreCase("user") ? "user" : "model",
                         "parts", List.of(Map.of("text", h.getText()))));
             }
@@ -61,6 +66,7 @@ public class GeminiServiceImpl {
             String response = restTemplate.postForObject(API_URL + "?key=" + apiKey, new HttpEntity<>(requestBody, new HttpHeaders()), String.class);
             return objectMapper.readTree(response).path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
         } catch (Exception e) {
+            log.error("Gemini API çağrısı başarısız", e);
             return "{\"intent\": \"SOHBET\", \"chat_response\": \"Sistem geçici olarak yanıt veremiyor.\"}";
         }
     }

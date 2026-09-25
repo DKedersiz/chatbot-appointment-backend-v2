@@ -46,11 +46,6 @@ public class    Appointment {
     @JoinColumn(name = "doctor_id",nullable = false)
     private Doctor doctor;
 
-    @NotNull(message = "Bölüm bilgisi gereklidir.")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "department_id",nullable = false)
-    private Department department;
-
     @NotNull(message = "Randevu tarihi gereklidir.")
     @Column(name = "appointment_date",nullable = false)
     private LocalDate appointmentDate;
@@ -91,6 +86,11 @@ public class    Appointment {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+
+    // department, doktorun bağlı olduğu bölümden türetilir; ayrıca saklanmaz ki ikisi asla uyuşmazlığa düşmesin.
+    public Department getDepartment() {
+        return doctor != null ? doctor.getDepartment() : null;
+    }
 
     public boolean canBeCancelled() {
         if(status != AppointmentStatus.PENDING && status != AppointmentStatus.CONFIRMED) {

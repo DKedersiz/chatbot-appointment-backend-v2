@@ -82,20 +82,8 @@ public class Doctor {
     @Column(name = "hire_date")
     private LocalDateTime hireDate;
 
-    @Column(name = "last_activity")
-    private LocalDateTime lastActivity;
-
-
-    public String getFullName() {
-        return user.getFirstName() + " " + user.getLastName();
-    }
-
     public String getDisplayName() {
         return user != null ? title + " " + user.getFullName() : null;
-    }
-
-    public void updateLastActivity() {
-        this.lastActivity = LocalDateTime.now();
     }
 
     public boolean isActiveAndAvailable() {

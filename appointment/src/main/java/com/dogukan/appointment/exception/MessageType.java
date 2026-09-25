@@ -5,7 +5,6 @@ import lombok.Getter;
 @Getter
 public enum MessageType {
     USER_NOT_FOUND("1004","Kullanıcı bulunamadı."),
-    EMAIL_NOT_VERIFIED("1005","E-posta adresi doğrulanmamış"),
     INVALID_TOKEN("1006","Geçersiz token."),
     APPOINTMENT_NOT_FOUND("1007","Verilen ID ile geçerli bir randevu bulunamadı."),
     TOKEN_EXPIRED("1008","Token süresi geçmiş."),

@@ -1,4 +1,4 @@
-package com.dogukan.appointment.service.impl;
+package com.dogukan.appointment.service;
 
 import com.dogukan.appointment.exception.BaseException;
 import com.dogukan.appointment.exception.ErrorMessage;
@@ -7,7 +7,6 @@ import com.dogukan.appointment.jwt.JwtService;
 import com.dogukan.appointment.model.RefreshToken;
 import com.dogukan.appointment.model.User;
 import com.dogukan.appointment.repository.RefreshTokenRepository;
-import com.dogukan.appointment.service.IRefreshTokenService;
 import lombok.Builder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,7 +17,7 @@ import java.util.Date;
 import java.util.UUID;
 
 @Service
-public class RefreshTokenServiceImpl implements IRefreshTokenService {
+public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
@@ -28,7 +27,7 @@ public class RefreshTokenServiceImpl implements IRefreshTokenService {
     private Long refreshTokenExpirationMs;
 
 
-    public RefreshTokenServiceImpl(RefreshTokenRepository refreshTokenRepository, JwtService jwtService) {
+    public RefreshTokenService(RefreshTokenRepository refreshTokenRepository, JwtService jwtService) {
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtService = jwtService;
     }
@@ -44,7 +43,6 @@ public class RefreshTokenServiceImpl implements IRefreshTokenService {
         return refreshTokenRepository.save(refreshToken);
     }
 
-    @Override
     public String generateNewAccessToken(String refreshToken) {
         RefreshToken token = refreshTokenRepository.findByRefreshToken(refreshToken)
                 .orElseThrow(() -> new RuntimeException("Refresh token not found"));
@@ -57,6 +55,12 @@ public class RefreshTokenServiceImpl implements IRefreshTokenService {
         User user = token.getUser();
         return jwtService.generateToken(user);
 
+    }
+
+    @Transactional
+    public void revokeRefreshToken(String refreshToken) {
+        refreshTokenRepository.findByRefreshToken(refreshToken)
+                .ifPresent(refreshTokenRepository::delete);
     }
 
 }

@@ -1,6 +1,7 @@
 package com.dogukan.appointment.gemini;
 
 import com.dogukan.appointment.dto.appointment.DtoAppointmentCreate;
+import com.dogukan.appointment.dto.appointment.DtoAppointmentResponse;
 import com.dogukan.appointment.gemini.dto.ChatbotRequest;
 import com.dogukan.appointment.gemini.dto.ChatbotResponse;
 import com.dogukan.appointment.gemini.dto.MessageHistory;
@@ -8,35 +9,41 @@ import com.dogukan.appointment.model.Department;
 import com.dogukan.appointment.model.Doctor;
 import com.dogukan.appointment.repository.DepartmentRepository;
 import com.dogukan.appointment.repository.DoctorRepository;
-import com.dogukan.appointment.service.IAppointmentService;
-import com.dogukan.appointment.service.impl.DoctorScheduleService;
+import com.dogukan.appointment.security.UserPrincipal;
+import com.dogukan.appointment.service.AppointmentService;
+import com.dogukan.appointment.service.DoctorScheduleService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.DateTimeException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class ChatbotServiceImpl {
 
     private final GeminiServiceImpl geminiService;
     private final DepartmentRepository departmentRepository;
     private final DoctorRepository doctorRepository;
-    private final IAppointmentService appointmentService;
+    private final AppointmentService appointmentService;
     private final DoctorScheduleService scheduleService;
     private final ObjectMapper objectMapper;
 
     public ChatbotServiceImpl(GeminiServiceImpl geminiService, DepartmentRepository departmentRepository,
-                              DoctorRepository doctorRepository, IAppointmentService appointmentService,
+                              DoctorRepository doctorRepository, AppointmentService appointmentService,
                               DoctorScheduleService scheduleService) {
         this.geminiService = geminiService;
         this.departmentRepository = departmentRepository;
@@ -65,7 +72,7 @@ public class ChatbotServiceImpl {
                     "### VERİ KATALOĞU:\n" + hospitalCatalog + "\n" +
                     "### MÜSAİTLİKLER (Gerçek Zamanlı):\n" + slotsInfo;
 
-            System.out.println(hospitalCatalog);
+            log.debug("Gemini'ye gönderilen prompt:\n{}", systemPrompt);
 
             String aiJson = geminiService.extractIntentAndEntities(request.getQuery(), systemPrompt,
                     "Kullanıcı belirsiz konuştuysa (fark etmez vb.) insiyatif al ve en yakın saati seçerek randevuyu oluştur.", request.getHistory());
@@ -76,22 +83,19 @@ public class ChatbotServiceImpl {
             String intent = data.path("intent").asText("SOHBET");
 
             if ("RANDEVU_OLUSTUR".equalsIgnoreCase(intent)) {
-                return handleCreateFinal(data, request.getUserId(), request.getHistory(), systemPrompt);
+                return handleCreateFinal(data, request.getHistory(), systemPrompt);
             }
 
             return new ChatbotResponse(data.path("chat_response").asText("Size nasıl yardımcı olabilirim?"));
 
         } catch (Exception e) {
+            log.error("Chatbot mesajı işlenemedi", e);
             return new ChatbotResponse("Şu an talebinizi işleyemiyorum, lütfen tekrar dener misiniz?");
         }
     }
 
-    private ChatbotResponse handleCreateFinal(JsonNode data, String userId, List<MessageHistory> history, String systemPrompt) {
+    private ChatbotResponse handleCreateFinal(JsonNode data, List<MessageHistory> history, String systemPrompt) {
         try {
-            if (userId == null || userId.isEmpty() || userId.equals("null")) {
-                return new ChatbotResponse("Oturumunuz kapalı. Lütfen giriş yapın.");
-            }
-
             String departmentName = data.path("department").asText();
             String doctorNameFromAi = data.path("doctor_name").asText();
             String dateStr = data.path("date").asText();
@@ -104,26 +108,45 @@ public class ChatbotServiceImpl {
             Department dept = departmentRepository.findByDepartmentNameContainingIgnoreCase(departmentName)
                     .orElseThrow(() -> new RuntimeException("Bölüm bulunamadı: " + departmentName));
 
-            List<Doctor> doctors = doctorRepository.findByDepartment_DepartmentId(dept.getDepartmentId());
-            Doctor selectedDoc = doctors.stream()
-                    .filter(d -> {
-                        String dbName = d.getDisplayName().toLowerCase(new Locale("tr")).replaceAll("prof\\.|dr\\.|doç\\.|uzm\\.", "").trim();
-                        String aiName = doctorNameFromAi.toLowerCase(new Locale("tr")).replaceAll("prof\\.|dr\\.|doç\\.|uzm\\.", "").trim();
-                        return dbName.contains(aiName) || aiName.contains(dbName);
-                    }).findFirst().orElse(doctors.get(0));
+            List<Doctor> doctors = activeDoctorsIn(dept);
+            if (doctors.isEmpty()) {
+                return new ChatbotResponse(dept.getDepartmentName() + " bölümünde şu anda randevu veren doktor bulunmuyor.");
+            }
 
-            appointmentService.createAppointment(DtoAppointmentCreate.builder()
-                    .userId(UUID.fromString(userId))
-                    .departmentId(dept.getDepartmentId())
-                    .doctorId(selectedDoc.getDoctorId())
+            String aiName = normalizeDoctorName(doctorNameFromAi);
+            Optional<Doctor> selectedDoc = aiName.isEmpty()
+                    ? Optional.empty()
+                    : doctors.stream()
+                        .filter(d -> {
+                            String dbName = normalizeDoctorName(d.getDisplayName());
+                            return dbName.contains(aiName) || aiName.contains(dbName);
+                        })
+                        .findFirst();
+
+            if (selectedDoc.isEmpty()) {
+                String options = doctors.stream().map(Doctor::getDisplayName).collect(Collectors.joining(", "));
+                return new ChatbotResponse("Hangi doktordan randevu almak istediğinizi anlayamadım. "
+                        + dept.getDepartmentName() + " bölümündeki doktorlar: " + options + ". Hangisini tercih edersiniz?");
+            }
+
+            UserPrincipal currentUser = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+            DtoAppointmentResponse created = appointmentService.createAppointment(DtoAppointmentCreate.builder()
+                    .userId(currentUser.getUserId())
+                    .doctorId(selectedDoc.get().getDoctorId())
                     .appointmentDate(LocalDate.parse(dateStr))
                     .appointmentTime(LocalTime.parse(timeStr))
                     .complaintText(data.path("complaint").asText("Akıllı Asistan Kaydı"))
-                    .build());
+                    .build(), currentUser);
 
-            return new ChatbotResponse(data.path("chat_response").asText("Randevunuz başarıyla oluşturuldu."));
+            return new ChatbotResponse(String.format("Randevunuz oluşturuldu: %s, %s (%s), saat %s.",
+                    created.getDoctorName(),
+                    created.getAppointmentDate().format(DateTimeFormatter.ofPattern("d MMMM yyyy", new Locale("tr"))),
+                    created.getDepartmentName(),
+                    created.getAppointmentTime()));
 
         } catch (Exception e) {
+            log.warn("Chatbot üzerinden randevu oluşturulamadı: {}", e.getMessage());
             String errorMsg = e.getMessage();
             String recoveryPrompt = "SİSTEM HATASI: Randevu oluşturulamadı. Sebep: " + errorMsg +
                     "\nLütfen kullanıcıya durumu açıkla ve mevcut MÜSAİTLİKLER listesinden başka bir alternatif sun.";
@@ -132,16 +155,26 @@ public class ChatbotServiceImpl {
                 JsonNode retryData = objectMapper.readTree(aiRetryJson.replaceAll("```json", "").replaceAll("```", "").trim());
                 return new ChatbotResponse(retryData.path("chat_response").asText("Üzgünüm, bir sorun oluştu. Başka bir saat seçmek ister misiniz?"));
             } catch (Exception inner) {
+                log.error("Hata sonrası kurtarma yanıtı üretilemedi", inner);
                 return new ChatbotResponse("Seçilen saat uygun değil, lütfen listeden başka bir saat seçin.");
             }
         }
     }
 
+    private List<Doctor> activeDoctorsIn(Department department) {
+        return doctorRepository.findByDepartment_DepartmentId(department.getDepartmentId()).stream()
+                .filter(Doctor::isActiveAndAvailable)
+                .toList();
+    }
+
+    private String normalizeDoctorName(String name) {
+        return name.toLowerCase(new Locale("tr")).replaceAll("prof\\.|dr\\.|doç\\.|uzm\\.", "").trim();
+    }
+
     private String getHospitalCatalog() {
         return departmentRepository.findAll().stream()
                 .map(d -> "- " + d.getDepartmentName() + ": " +
-                        doctorRepository.findByDepartment_DepartmentId(d.getDepartmentId())
-                                .stream().map(Doctor::getDisplayName).collect(Collectors.joining(", ")))
+                        activeDoctorsIn(d).stream().map(Doctor::getDisplayName).collect(Collectors.joining(", ")))
                 .collect(Collectors.joining("\n"));
     }
 
@@ -149,10 +182,15 @@ public class ChatbotServiceImpl {
         String currentMsg = query.toLowerCase(new Locale("tr"));
         String historyStr = history.stream().map(MessageHistory::getText).collect(Collectors.joining(" ")).toLowerCase(new Locale("tr"));
 
+        boolean mentionsChild = currentMsg.contains("çocuk") || historyStr.contains("çocuk");
+
         Department detectedDept = departmentRepository.findAll().stream()
-                .filter(d -> currentMsg.contains(d.getDepartmentName().toLowerCase(new Locale("tr"))) ||
-                        historyStr.contains(d.getDepartmentName().toLowerCase(new Locale("tr"))) ||
-                        currentMsg.contains("çocuk") || historyStr.contains("çocuk"))
+                .filter(d -> {
+                    String name = d.getDepartmentName().toLowerCase(new Locale("tr"));
+                    boolean nameMentioned = currentMsg.contains(name) || historyStr.contains(name);
+                    boolean isPediatrics = name.contains("çocuk") || name.contains("pediatri");
+                    return nameMentioned || (mentionsChild && isPediatrics);
+                })
                 .findFirst().orElse(null);
 
         if (detectedDept == null) return "Henüz branş seçilmedi.";
@@ -164,7 +202,7 @@ public class ChatbotServiceImpl {
         }
 
         StringBuilder sb = new StringBuilder(targetDate + " tarihli müsaitlikler:\n");
-        List<Doctor> docs = doctorRepository.findByDepartment_DepartmentId(detectedDept.getDepartmentId());
+        List<Doctor> docs = activeDoctorsIn(detectedDept);
 
         boolean anySlot = false;
         for (Doctor doc : docs) {
@@ -193,7 +231,14 @@ public class ChatbotServiceImpl {
 
         Pattern p = Pattern.compile("(\\d{1,2})\\s*(ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık)");
         Matcher m = p.matcher(text);
-        if (m.find()) return LocalDate.of(2026, getMonth(m.group(2)), Integer.parseInt(m.group(1)));
+        if (m.find()) {
+            try {
+                LocalDate candidate = LocalDate.of(now.getYear(), getMonth(m.group(2)), Integer.parseInt(m.group(1)));
+                return candidate.isBefore(now) ? candidate.plusYears(1) : candidate;
+            } catch (DateTimeException e) {
+                log.warn("Geçersiz tarih ifadesi: {} {}", m.group(1), m.group(2));
+            }
+        }
 
         return now;
     }
@@ -206,6 +251,20 @@ public class ChatbotServiceImpl {
     }
 
     private int getMonth(String m) {
-        return switch (m.toLowerCase()) { case "ocak" -> 1; case "şubat" -> 2; case "mart" -> 3; case "nisan" -> 4; case "mayıs" -> 5; case "haziran" -> 6; default -> 1; };
+        return switch (m) {
+            case "ocak" -> 1;
+            case "şubat" -> 2;
+            case "mart" -> 3;
+            case "nisan" -> 4;
+            case "mayıs" -> 5;
+            case "haziran" -> 6;
+            case "temmuz" -> 7;
+            case "ağustos" -> 8;
+            case "eylül" -> 9;
+            case "ekim" -> 10;
+            case "kasım" -> 11;
+            case "aralık" -> 12;
+            default -> throw new IllegalArgumentException("Bilinmeyen ay: " + m);
+        };
     }
 }

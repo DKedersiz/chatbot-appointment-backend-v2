@@ -1,8 +1,5 @@
-package com.dogukan.appointment.service.impl;
+package com.dogukan.appointment.service;
 
-import com.dogukan.appointment.repository.EmailVerificationTokenRepository;
-import com.dogukan.appointment.repository.UserRepository;
-import com.dogukan.appointment.service.IEmailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,19 +10,14 @@ import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
 @Service
-public class EmailServiceImpl implements IEmailService {
+public class EmailService {
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
-    private final EmailVerificationTokenRepository tokenRepository;
-    private final UserRepository userRepository;
 
-    public EmailServiceImpl(JavaMailSender javaMailSender,TemplateEngine templateEngine,EmailVerificationTokenRepository emailVerificationTokenRepository,
-                            UserRepository userRepository) {
+    public EmailService(JavaMailSender javaMailSender, TemplateEngine templateEngine) {
         this.mailSender = javaMailSender;
         this.templateEngine = templateEngine;
-        this.tokenRepository = emailVerificationTokenRepository;
-        this.userRepository = userRepository;
     }
 
     @Value("${app_base_url}")
@@ -35,7 +27,6 @@ public class EmailServiceImpl implements IEmailService {
     private String fromEmail;
 
 
-    @Override
     public void sendVerificationEmail(String recipientEmail,String verificationToken) {
         String verificationUrl = baseUrl + "/email-dogrulama?token=" + verificationToken;
         String subject = "Hesabınızı Doğrulayın";
@@ -59,7 +50,6 @@ public class EmailServiceImpl implements IEmailService {
         }
     }
 
-    @Override
     public void sendPasswordResetEmail(String email, String token   ) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -67,7 +57,7 @@ public class EmailServiceImpl implements IEmailService {
             helper.setFrom(fromEmail);
             helper.setTo(email);
             helper.setSubject("Şifre Sıfırlama");
-            String resetLink = "http://localhost:8080/api/auth/reset-password?token=" + token;
+            String resetLink = baseUrl + "/sifre-sifirla?token=" + token;
             helper.setText("Şifrenizi sıfırlamak için aşağıdaki bağlantıya tıklayın: <a href=\"" + resetLink + "\">Şifreyi Sıfırla</a>", true);
             mailSender.send(message);
         } catch (MessagingException e) {

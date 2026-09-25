@@ -10,12 +10,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.UUID;
 
 @Getter
@@ -28,7 +23,10 @@ import java.util.UUID;
         @Index(name = "idx_user_email", columnList = "email"),
         @Index(name = "idx_user_tck", columnList = "tck_no")
 })
-public class User implements UserDetails {
+public class User {
+
+    private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
+    private static final int LOCK_DURATION_MINUTES = 30;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -92,49 +90,17 @@ public class User implements UserDetails {
     private LocalDateTime lockedUntil;
 
 
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singletonList(new SimpleGrantedAuthority(role.name()));
-    }
-
-    @Override
-    public String getPassword() {
-        return password;
-    }
-
-    @Override
-    public String getUsername() {
-        return email;
-    }
-
-    @Override
-    public boolean isAccountNonExpired() {
-        return isActive;
-    }
-
-    @Override
-    public boolean isAccountNonLocked() {
-        return isActive && (lockedUntil == null || lockedUntil.isBefore(LocalDateTime.now()));
-    }
-
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return isActive;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return isActive && isVerified;
-    }
-
     public String getFullName() {
         return firstName + " " + lastName;
     }
 
     public void incrementFailedLoginAttempts() {
+        if (lockedUntil != null && lockedUntil.isBefore(LocalDateTime.now())) {
+            resetFailedLoginAttempts();
+        }
         this.failedLoginAttempts++;
-        if (this.failedLoginAttempts >= 5)
-            this.lockedUntil = LocalDateTime.now().plusMinutes(30);
+        if (this.failedLoginAttempts >= MAX_FAILED_LOGIN_ATTEMPTS)
+            this.lockedUntil = LocalDateTime.now().plusMinutes(LOCK_DURATION_MINUTES);
     }
 
     public void resetFailedLoginAttempts() {

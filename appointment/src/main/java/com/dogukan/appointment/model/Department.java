@@ -38,15 +38,8 @@ public class Department {
     @Column(name = "is_active",nullable = false)
     private boolean isActive = true;
 
-    @OneToMany(mappedBy = "department",cascade = CascadeType.ALL,fetch = FetchType.LAZY)
+    // REMOVE kasıtlı olarak kapsam dışı: bir bölümü silmek ona bağlı doktorları (ve dolayısıyla randevu geçmişlerini) silmemeli.
+    @OneToMany(mappedBy = "department", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY)
     private List<Doctor> doctors;
-
-    public int getActiveDoctorsCount() {
-        return doctors != null ? (int) doctors.stream().filter(doctor -> doctor.getIsActive() && doctor.getIsAvailable()).count() : 0;
-    }
-
-    public boolean hasAvailableDoctors() {
-        return getActiveDoctorsCount() > 0;
-    }
 
 }

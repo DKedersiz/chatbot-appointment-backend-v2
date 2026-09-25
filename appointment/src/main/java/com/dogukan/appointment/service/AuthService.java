@@ -1,4 +1,4 @@
-package com.dogukan.appointment.service.impl;
+package com.dogukan.appointment.service;
 
 import com.dogukan.appointment.dto.*;
 import com.dogukan.appointment.enums.Role;
@@ -11,12 +11,9 @@ import com.dogukan.appointment.model.RefreshToken;
 import com.dogukan.appointment.model.User;
 import com.dogukan.appointment.repository.EmailVerificationTokenRepository;
 import com.dogukan.appointment.repository.UserRepository;
-import com.dogukan.appointment.service.IAuthService;
-import com.dogukan.appointment.service.IEmailService;
-import com.dogukan.appointment.service.IRefreshTokenService;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,19 +23,19 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-public class AuthServiceImpl implements IAuthService {
+public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-    private final IRefreshTokenService refreshTokenService;
+    private final RefreshTokenService refreshTokenService;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
-    private final IEmailService emailService;
+    private final EmailService emailService;
 
-    public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
-                           AuthenticationManager authenticationManager, IRefreshTokenService refreshTokenService,
-                           EmailVerificationTokenRepository emailVerificationTokenRepository, IEmailService emailService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
+                           AuthenticationManager authenticationManager, RefreshTokenService refreshTokenService,
+                           EmailVerificationTokenRepository emailVerificationTokenRepository, EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -48,7 +45,6 @@ public class AuthServiceImpl implements IAuthService {
         this.emailService = emailService;
     }
 
-    @Override
     @Transactional
     public String register(DtoRegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -82,48 +78,47 @@ public class AuthServiceImpl implements IAuthService {
         return "Kayıt başarıyla oluşturuldu. Lütfen e-postanızı kontrol edip hesabınızı onaylayın.";
     }
 
-    @Override
     public DtoLoginResponse login(DtoLoginRequest request) {
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-        Optional<User> user = userRepository.findByEmail(request.getEmail());
-
-        // Bu kontrol zaten authenticationManager tarafından yapılmalı, ancak ek koruma olarak bırakılabilir.
-        if (user.isEmpty()) {
-            throw new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, "Bu e-posta ile kullanıcı bulunamadı."));
+        try {
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        } catch (BadCredentialsException e) {
+            userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+                user.incrementFailedLoginAttempts();
+                userRepository.save(user);
+            });
+            throw e;
         }
 
-        User authenticatedUser = user.get();
-
-        if (!authenticatedUser.getIsVerified()) {
-            throw new BaseException(new ErrorMessage(MessageType.EMAIL_NOT_VERIFIED, "E-posta adresi doğrulanmamış."));
-        }
+        User authenticatedUser = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, request.getEmail())));
 
         String accessToken = jwtService.generateToken(authenticatedUser);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(authenticatedUser);
 
+        authenticatedUser.resetFailedLoginAttempts();
         authenticatedUser.updateLastLogin();
         userRepository.save(authenticatedUser);
 
-        // KRİTİK DÜZELTME: Kullanıcı bilgilerini DTO'ya ekle
         return DtoLoginResponse.builder()
-                .accessToken(accessToken) // Cookie'de de gönderilse de DTO'da kalabilir
-                .refreshToken(refreshToken.getRefreshToken()) // Cookie'de de gönderilse de DTO'da kalabilir
-                .userId(authenticatedUser.getUserId()) // <-- EKLENDİ
-                .firstName(authenticatedUser.getFirstName()) // <-- EKLENDİ
-                .lastName(authenticatedUser.getLastName()) // <-- EKLENDİ
-                .role(authenticatedUser.getRole().name()) // <-- EKLENDİ
+                .accessToken(accessToken)
+                .refreshToken(refreshToken.getRefreshToken())
+                .userId(authenticatedUser.getUserId())
+                .firstName(authenticatedUser.getFirstName())
+                .lastName(authenticatedUser.getLastName())
+                .email(authenticatedUser.getEmail())
+                .role(authenticatedUser.getRole().name())
                 .build();
     }
 
-    @Override
-    public RefreshTokenResponse refreshToken(String refreshToken) {
-        String newAccessToken = refreshTokenService.generateNewAccessToken(refreshToken);
-        return RefreshTokenResponse.builder()
-                .accessToken(newAccessToken)
-                .build();
+    public String refreshToken(String refreshToken) {
+        return refreshTokenService.generateNewAccessToken(refreshToken);
     }
 
-    @Override
+    @Transactional
+    public void logout(String refreshToken) {
+        refreshTokenService.revokeRefreshToken(refreshToken);
+    }
+
     @Transactional
     public String verifyEmail(String token) {
         Optional<EmailVerificationToken> verificationToken = emailVerificationTokenRepository.findByToken(token);
@@ -140,7 +135,6 @@ public class AuthServiceImpl implements IAuthService {
         return "E-posta başarıyla doğrulandı.";
     }
 
-    @Override
     @Transactional
     public String forgotPassword(DtoForgotPasswordRequest request) {
         Optional<User> user = userRepository.findByEmail(request.getEmail());
@@ -158,7 +152,6 @@ public class AuthServiceImpl implements IAuthService {
         return "Şifre sıfırlama isteği gönderildi.";
     }
 
-    @Override
     @Transactional
     public String resetPassword(DtoResetPasswordRequest request) {
         Optional<EmailVerificationToken> resetToken = emailVerificationTokenRepository.findByToken(request.getToken());

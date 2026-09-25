@@ -1,14 +1,15 @@
-package com.dogukan.appointment.service.impl;
+package com.dogukan.appointment.service;
 
 import com.dogukan.appointment.dto.user.DtoUser;
 import com.dogukan.appointment.dto.user.DtoUserIU;
+import com.dogukan.appointment.enums.Role;
 import com.dogukan.appointment.exception.BaseException;
 import com.dogukan.appointment.exception.ErrorMessage;
 import com.dogukan.appointment.exception.MessageType;
 import com.dogukan.appointment.mapper.UserMapper;
 import com.dogukan.appointment.model.User;
 import com.dogukan.appointment.repository.UserRepository;
-import com.dogukan.appointment.service.IUserService;
+import com.dogukan.appointment.security.UserPrincipal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -27,19 +28,18 @@ import java.util.UUID;
 @Slf4j
 @Validated
 @Service
-public class UserServiceImpl implements IUserService, UserDetailsService {
+public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, UserMapper userMapper, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
     }
 
-    @Override
     @Transactional
     @Validated({DtoUserIU.CreateValidation.class, Default.class})
     public DtoUser createUser(@Valid DtoUserIU dtoUser) {
@@ -61,20 +61,11 @@ public class UserServiceImpl implements IUserService, UserDetailsService {
         return userMapper.toDto(savedUser);
     }
 
-    @Override
     public Optional<DtoUser> getUserById(UUID id) {
         return userRepository.findById(id)
                 .map(userMapper::toDto);
     }
 
-    @Override
-    public DtoUser getUserByEmail(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, "Kullanıcı bulunamadı: " + email)));
-        return userMapper.toDto(user);
-    }
-
-    @Override
     public DtoUser getUserByTckNo(String tckNo) {
         log.info("Getting user by TckNo: {}", tckNo);
         User user = userRepository.findByTckNo(tckNo)
@@ -82,17 +73,15 @@ public class UserServiceImpl implements IUserService, UserDetailsService {
         return userMapper.toDto(user);
     }
 
-    @Override
     public List<DtoUser> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(userMapper::toDto)
                 .toList();
     }
 
-    @Override
     @Transactional
     @Validated(Default.class)
-    public DtoUser updateUser(UUID id, @Valid DtoUserIU dtoUser) {
+    public DtoUser updateUser(UUID id, @Valid DtoUserIU dtoUser, UserPrincipal currentUser) {
         log.info("Updating user with id : {}", id);
 
         User existingUser = userRepository.findById(id)
@@ -100,6 +89,13 @@ public class UserServiceImpl implements IUserService, UserDetailsService {
 
         if (dtoUser.getEmail() != null && !dtoUser.getEmail().equals(existingUser.getEmail()) && userRepository.existsByEmail(dtoUser.getEmail())) {
             throw new BaseException(new ErrorMessage(MessageType.EMAIL_ALREADY_EXISTS, "Bu e-posta adresi zaten kullanımda."));
+        }
+
+        if (dtoUser.getRole() != null && dtoUser.getRole() != existingUser.getRole()) {
+            if (currentUser.getRole() != Role.ADMIN) {
+                throw new BaseException(new ErrorMessage(MessageType.UNAUTHORIZED_REQUEST, "Rol değişikliği yalnızca yöneticiler tarafından yapılabilir."));
+            }
+            existingUser.setRole(dtoUser.getRole());
         }
 
         userMapper.updateUserFromDto(dtoUser, existingUser);
@@ -113,18 +109,17 @@ public class UserServiceImpl implements IUserService, UserDetailsService {
         return userMapper.toDto(updatedUser);
     }
 
-    @Override
     @Transactional
     public String deleteUser(UUID id) {
         log.info("Deleting user with id : {}", id);
 
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, "Kullanıcı bulunamadı: " + id)));
-        userRepository.delete(user);
-        return "Kullanıcı başarıyla silindi.";
+        user.setIsActive(false);
+        userRepository.save(user);
+        return "Kullanıcı pasif hale getirildi.";
     }
 
-    @Override
     public List<DtoUser> searchUsersByName(String firstName, String lastName) {
         log.debug("Searching users by name : {}", firstName + " " + lastName);
 
@@ -137,7 +132,8 @@ public class UserServiceImpl implements IUserService, UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        return userRepository.findByEmail(username)
+        User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, "Kullanıcı bulunamadı: " + username)));
+        return UserPrincipal.from(user);
     }
 }

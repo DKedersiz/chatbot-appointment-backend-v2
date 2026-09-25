@@ -1,20 +1,20 @@
-package com.dogukan.appointment.service.impl;
+package com.dogukan.appointment.service;
 
 import com.dogukan.appointment.dto.appointment.DtoAppointmentCancel;
 import com.dogukan.appointment.dto.appointment.DtoAppointmentCreate;
 import com.dogukan.appointment.dto.appointment.DtoAppointmentResponse;
 import com.dogukan.appointment.enums.AppointmentStatus;
 import com.dogukan.appointment.enums.CancelledBy;
+import com.dogukan.appointment.enums.Role;
 import com.dogukan.appointment.exception.BaseException;
 import com.dogukan.appointment.exception.ErrorMessage;
 import com.dogukan.appointment.exception.MessageType;
 import com.dogukan.appointment.model.*;
 import com.dogukan.appointment.repository.AppointmentRepository;
-import com.dogukan.appointment.repository.DepartmentRepository;
 import com.dogukan.appointment.repository.DoctorRepository;
 import com.dogukan.appointment.repository.DoctorScheduleRepository;
 import com.dogukan.appointment.repository.UserRepository;
-import com.dogukan.appointment.service.IAppointmentService;
+import com.dogukan.appointment.security.UserPrincipal;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,35 +27,34 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-public class AppointmentServiceImpl implements IAppointmentService {
+public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
-    private final DepartmentRepository departmentRepository;
     private final DoctorScheduleRepository scheduleRepository;
 
-    public AppointmentServiceImpl(AppointmentRepository appointmentRepository,
+    public AppointmentService(AppointmentRepository appointmentRepository,
                                   DoctorRepository doctorRepository,
                                   UserRepository userRepository,
-                                  DepartmentRepository departmentRepository,
                                   DoctorScheduleRepository scheduleRepository) {
         this.appointmentRepository = appointmentRepository;
         this.doctorRepository = doctorRepository;
         this.userRepository = userRepository;
-        this.departmentRepository = departmentRepository;
         this.scheduleRepository = scheduleRepository;
     }
 
-    @Override
     @Transactional
-    public DtoAppointmentResponse createAppointment(DtoAppointmentCreate dto) {
+    public DtoAppointmentResponse createAppointment(DtoAppointmentCreate dto, UserPrincipal currentUser) {
+        assertOwnerOrAdmin(currentUser, dto.getUserId());
+
         User user = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.USER_NOT_FOUND, dto.getUserId().toString())));
         Doctor doctor = doctorRepository.findById(dto.getDoctorId())
                 .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.DOCTOR_NOT_FOUND, null)));
-        Department dept = departmentRepository.findById(dto.getDepartmentId())
-                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.DEPARTMENT_NOT_FOUND, null)));
+        if (!doctor.isActiveAndAvailable()) {
+            throw new BaseException(new ErrorMessage(MessageType.DOCTOR_NOT_AVAILABLE, "Doktor şu anda randevu kabul etmiyor."));
+        }
 
         int dayOfWeek = dto.getAppointmentDate().getDayOfWeek().getValue();
         DoctorSchedule schedule = scheduleRepository
@@ -84,7 +83,6 @@ public class AppointmentServiceImpl implements IAppointmentService {
         Appointment appointment = Appointment.builder()
                 .user(user)
                 .doctor(doctor)
-                .department(dept)
                 .appointmentDate(dto.getAppointmentDate())
                 .appointmentTime(reqTime)
                 .complaintText(dto.getComplaintText())
@@ -93,20 +91,15 @@ public class AppointmentServiceImpl implements IAppointmentService {
 
         Appointment saved = appointmentRepository.save(appointment);
 
-        DtoAppointmentResponse response = new DtoAppointmentResponse();
-        BeanUtils.copyProperties(saved, response);
-        response.setAppointmentStatus(saved.getStatus());
-        response.setDoctorName(doctor.getDisplayName());
-        response.setDepartmentName(dept.getDepartmentName());
-
-        return response;
+        return convertToResponseDto(saved);
     }
 
-    @Override
     @Transactional
-    public DtoAppointmentResponse cancelAppointment(UUID id, DtoAppointmentCancel dto) {
+    public DtoAppointmentResponse cancelAppointment(UUID id, DtoAppointmentCancel dto, UserPrincipal currentUser) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.APPOINTMENT_NOT_FOUND, id.toString())));
+
+        assertOwnerOrAdmin(currentUser, appointment.getUser().getUserId());
 
         if (!appointment.canBeCancelled()) {
             throw new BaseException(new ErrorMessage(MessageType.APPOINTMENT_NOT_CANCELLABLE, "Randevuya çok az süre kalmış."));
@@ -120,21 +113,27 @@ public class AppointmentServiceImpl implements IAppointmentService {
         return convertToResponseDto(appointmentRepository.save(appointment));
     }
 
-    @Override
-    public DtoAppointmentResponse getAppointmentById(UUID id) {
+    public DtoAppointmentResponse getAppointmentById(UUID id, UserPrincipal currentUser) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.APPOINTMENT_NOT_FOUND, id.toString())));
+        assertOwnerOrAdmin(currentUser, appointment.getUser().getUserId());
         return convertToResponseDto(appointment);
     }
 
-    @Override
+    private void assertOwnerOrAdmin(UserPrincipal currentUser, UUID ownerUserId) {
+        boolean isAdmin = currentUser.getRole() == Role.ADMIN;
+        boolean isOwner = currentUser.getUserId().equals(ownerUserId);
+        if (!isAdmin && !isOwner) {
+            throw new BaseException(new ErrorMessage(MessageType.UNAUTHORIZED_REQUEST, "Bu randevuya erişim yetkiniz yok."));
+        }
+    }
+
     public List<DtoAppointmentResponse> getAllAppointments() {
         return appointmentRepository.findAll().stream()
                 .map(this::convertToResponseDto)
                 .collect(Collectors.toList());
     }
 
-    @Override
     public List<DtoAppointmentResponse> getAllAppointmentsByUserId(UUID userId) {
         return appointmentRepository.findByUser_UserIdAndAppointmentDateGreaterThanEqual(userId, LocalDate.now().minusMonths(6))
                 .stream()
@@ -142,7 +141,6 @@ public class AppointmentServiceImpl implements IAppointmentService {
                 .collect(Collectors.toList());
     }
 
-    @Override
     @Transactional
     public String deleteAppointment(UUID id) {
         if (!appointmentRepository.existsById(id)) {
@@ -155,8 +153,25 @@ public class AppointmentServiceImpl implements IAppointmentService {
     private DtoAppointmentResponse convertToResponseDto(Appointment appointment) {
         DtoAppointmentResponse response = new DtoAppointmentResponse();
         BeanUtils.copyProperties(appointment, response);
-        if (appointment.getDoctor() != null) response.setDoctorName(appointment.getDoctor().getDisplayName());
-        if (appointment.getDepartment() != null) response.setDepartmentName(appointment.getDepartment().getDepartmentName());
+        response.setAppointmentStatus(appointment.getStatus());
+
+        User patient = appointment.getUser();
+        response.setUserId(patient.getUserId());
+        response.setPatientName(patient.getFullName());
+        response.setPatientEmail(patient.getEmail());
+        response.setPatientPhone(patient.getPhoneNumber());
+
+        Doctor doctor = appointment.getDoctor();
+        response.setDoctorId(doctor.getDoctorId());
+        response.setDoctorName(doctor.getDisplayName());
+        response.setDoctorTitle(doctor.getTitle());
+        response.setDoctorSpecialization(doctor.getSpecialization());
+
+        Department department = appointment.getDepartment();
+        if (department != null) {
+            response.setDepartmentId(department.getDepartmentId());
+            response.setDepartmentName(department.getDepartmentName());
+        }
         return response;
     }
 }

@@ -23,9 +23,6 @@ public class DtoAppointmentCreate {
     @NotNull(message = "Doktor bilgisi gereklidir.")
     private UUID doctorId;
 
-    @NotNull(message = "Bölüm bilgisi gereklidir.")
-    private UUID departmentId;
-
     @NotNull(message = "Randevu tarihi gereklidir")
     @FutureOrPresent(message = "Randevu tarihi bugün ya da gelecek bir tarih olmalıdır.")
     private LocalDate appointmentDate;

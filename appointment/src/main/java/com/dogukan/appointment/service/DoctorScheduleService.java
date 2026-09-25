@@ -1,4 +1,4 @@
-package com.dogukan.appointment.service.impl;
+package com.dogukan.appointment.service;
 
 import com.dogukan.appointment.enums.AppointmentStatus;
 import com.dogukan.appointment.model.Appointment;

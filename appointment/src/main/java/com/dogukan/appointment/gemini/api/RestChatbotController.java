@@ -21,7 +21,6 @@ public class RestChatbotController {
     @PostMapping("/appointment")
     @PreAuthorize("isAuthenticated()")
     public RootEntity<ChatbotResponse> chat(@RequestBody ChatbotRequest request) {
-        // ChatbotResponse içerisindeki chatResponse alanının dolu geldiğinden emin olunur
         return RootEntity.ok(chatbotService.processMessage(request));
     }
 }

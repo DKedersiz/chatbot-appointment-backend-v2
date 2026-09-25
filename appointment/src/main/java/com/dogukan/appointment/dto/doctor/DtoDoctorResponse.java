@@ -26,6 +26,5 @@ public class DtoDoctorResponse {
     private String workPhone;
     private String workEmail;
     private LocalDateTime hireDate;
-    private LocalDateTime lastActivity;
 
 }

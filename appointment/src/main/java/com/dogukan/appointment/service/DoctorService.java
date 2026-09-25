@@ -1,4 +1,4 @@
-package com.dogukan.appointment.service.impl;
+package com.dogukan.appointment.service;
 
 import com.dogukan.appointment.dto.doctor.DtoDoctorCreate;
 import com.dogukan.appointment.dto.doctor.DtoDoctorListResponse;
@@ -14,7 +14,6 @@ import com.dogukan.appointment.model.User;
 import com.dogukan.appointment.repository.DepartmentRepository;
 import com.dogukan.appointment.repository.DoctorRepository;
 import com.dogukan.appointment.repository.UserRepository;
-import com.dogukan.appointment.service.IDoctorService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -22,14 +21,14 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-public class DoctorServiceImpl implements IDoctorService {
+public class DoctorService {
 
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
     private final DoctorMapper doctorMapper;
 
-    public DoctorServiceImpl(DoctorRepository doctorRepository, UserRepository userRepository,
+    public DoctorService(DoctorRepository doctorRepository, UserRepository userRepository,
                              DepartmentRepository departmentRepository, DoctorMapper doctorMapper) {
         this.doctorRepository = doctorRepository;
         this.userRepository = userRepository;
@@ -37,7 +36,6 @@ public class DoctorServiceImpl implements IDoctorService {
         this.doctorMapper = doctorMapper;
     }
 
-    @Override
     public DtoDoctorResponse createDoctor(DtoDoctorCreate request) {
 
         var user = userRepository.findById(request.getUserId())
@@ -64,7 +62,6 @@ public class DoctorServiceImpl implements IDoctorService {
         return doctorMapper.toDtoDoctorResponse(savedDoctor);
     }
 
-    @Override
     public DtoDoctorResponse updateDoctor(UUID id, DtoDoctorUpdate request) {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.DOCTOR_NOT_FOUND,"Doktor bulunamadı:" + id)));
@@ -87,14 +84,12 @@ public class DoctorServiceImpl implements IDoctorService {
         return doctorMapper.toDtoDoctorResponse(updatedDoctor);
     }
 
-    @Override
     public DtoDoctorResponse getDoctorById(UUID id) {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.DOCTOR_NOT_FOUND,"Doktor bulunamadı:" + id)));
         return doctorMapper.toDtoDoctorResponse(doctor);
     }
 
-    @Override
     public List<DtoDoctorListResponse> getAllDoctors() {
         return doctorRepository.findAll().stream()
                 .map(doctor -> {
@@ -119,11 +114,12 @@ public class DoctorServiceImpl implements IDoctorService {
                 .toList();
     }
 
-    @Override
     public String deleteDoctor(UUID id) {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.DOCTOR_NOT_FOUND,"Doktor bulunamadı:" + id)));
-        doctorRepository.delete(doctor);
-        return "Doktor başarıyla silindi!";
+        doctor.setIsActive(false);
+        doctor.setIsAvailable(false);
+        doctorRepository.save(doctor);
+        return "Doktor pasif hale getirildi.";
     }
 }

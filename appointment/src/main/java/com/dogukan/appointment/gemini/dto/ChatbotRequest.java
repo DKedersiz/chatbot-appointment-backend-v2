@@ -1,6 +1,5 @@
 package com.dogukan.appointment.gemini.dto;
 
-import jdk.jfr.SettingDefinition;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,6 +13,5 @@ import java.util.List;
 @AllArgsConstructor
 public class ChatbotRequest {
     private String query;
-    private String userId;
     private List<MessageHistory> history;
 }
